@@ -45,12 +45,11 @@ if uploaded_video:
         # Get the total number of frames
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        # Set up the progress bar
+        # Set up the progress bar and placeholder for displaying current frame info
         progress_bar = st.progress(0)
         progress_text = st.empty()  # For displaying the current frame number
-
         stframe = st.empty()  # This is where the processed video will be displayed
-        
+
         current_frame = 0
 
         while cap.isOpened():
@@ -64,10 +63,10 @@ if uploaded_video:
             # Apply cursor highlighting to the cropped frame
             highlighted_frame = highlight_cursor(cropped_frame)
 
-            # Convert and display
-            highlighted_frame = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
-            stframe.image(highlighted_frame, channels="RGB")
-            
+            # Convert and display the current frame in the stream
+            highlighted_frame_rgb = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
+            stframe.image(highlighted_frame_rgb, caption=f"Frame {current_frame + 1}/{total_frames}", channels="RGB")
+
             # Update the progress bar and text
             current_frame += 1
             progress_percentage = int((current_frame / total_frames) * 100)
