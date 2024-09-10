@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import tempfile
 
-# Custom CSS for sliders, buttons, and settings icon
+# Custom CSS for styling, full-width button, and matching height
 st.markdown("""
     <style>
     .reportview-container .main .block-container {
@@ -15,16 +15,12 @@ st.markdown("""
         padding: 10px;
         border-radius: 5px;
     }
-    .settings-icon {
-        position: relative;
-        display: inline-block;
-        margin-left: 15px;
-        color: #FF4B4B;
-        font-size: 24px;
-        cursor: pointer;
+    .stButton button {
+        width: 100%;  /* Make the Focus button fill the available width */
+        height: 45px;  /* Set height to match the More Settings expander */
     }
-    .settings-icon:hover {
-        color: #ff854b;  /* Lighter hover color for settings */
+    .stExpander {
+        height: 45px;  /* Set the height for the More Settings expander */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -63,29 +59,27 @@ def highlight_cursor(frame, color=(0, 0, 255), radius=20):
     
     return frame
 
-# Layout: Upload button at the top, settings icon to the right
-col1, col2 = st.columns([6, 1])  # Column for drag-and-drop and settings icon
+# Upload area
+st.subheader("Upload your tutorial video")
+uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
+
+# Use Streamlit's built-in column layout to align "More Settings" and "Focus" button on the same row
+col1, col2 = st.columns([4, 1])  # Adjust the column widths as needed
 
 with col1:
-    st.subheader("Upload your tutorial video")
-    uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
+    # Add the expandable "More Settings" section
+    with st.expander("More Settings"):
+        st.subheader("Image Size")
+        aspect_ratio = st.radio(
+            "Select Aspect Ratio", 
+            options=["1:1", "4:3", "16:9", "9:16"], 
+            index=3, 
+            horizontal=True
+        )
 
-# Insert a settings icon to the right of the "Drag and Drop" area
 with col2:
-    st.markdown('<span class="settings-icon">⚙️</span>', unsafe_allow_html=True)
-
-# Add the expandable "More Settings" section when clicking on the icon
-with st.expander("More Settings"):
-    st.subheader("Image Size")
-    aspect_ratio = st.radio(
-        "Select Aspect Ratio", 
-        options=["1:1", "4:3", "16:9", "9:16"], 
-        index=3, 
-        horizontal=True
-    )
-
-# Add a button to start processing
-focus_button = st.button("Focus")
+    # Add the "Focus" button aligned to the right, filling the space
+    focus_button = st.button("Focus", key="focus_button")
 
 # Process the video and display the preview below the drag-and-drop area
 if uploaded_video and focus_button:
