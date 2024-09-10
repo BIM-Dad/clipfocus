@@ -41,8 +41,17 @@ if uploaded_video:
         st.error("Error: Could not open the video file.")
     else:
         st.text("Video uploaded and ready for processing")
+
+        # Get the total number of frames
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
+        # Set up the progress bar
+        progress_bar = st.progress(0)
+        progress_text = st.empty()  # For displaying the current frame number
+
         stframe = st.empty()  # This is where the processed video will be displayed
+        
+        current_frame = 0
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -58,5 +67,12 @@ if uploaded_video:
             # Convert and display
             highlighted_frame = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
             stframe.image(highlighted_frame, channels="RGB")
+            
+            # Update the progress bar and text
+            current_frame += 1
+            progress_percentage = int((current_frame / total_frames) * 100)
+            progress_bar.progress(progress_percentage)
+            progress_text.text(f"Processing frame {current_frame} of {total_frames}")
 
         cap.release()
+        st.success("Video processing complete!")
