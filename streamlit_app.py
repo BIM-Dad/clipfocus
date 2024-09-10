@@ -32,7 +32,7 @@ st.markdown("""
         padding: 10px;
         cursor: pointer;
         transition: border-color 0.3s;
-        text-align: center;
+        text-align: center.
     }
     .ratio-box.selected {
         border-color: #FF4B4B;
@@ -43,19 +43,19 @@ st.markdown("""
     }
     .box-square {
         width: 60px;
-        height: 60px;
+        height: 60px.
     }
     .box-landscape-small {
         width: 80px;
-        height: 60px;
+        height: 60px.
     }
     .box-landscape-large {
         width: 100px;
-        height: 56px;
+        height: 56px.
     }
     .stButton button {
         width: 100%;
-        height: 45px;
+        height: 45px.
     }
     </style>
     """, unsafe_allow_html=True)
@@ -77,24 +77,31 @@ def apply_aspect_ratio(clip, aspect_ratio):
     else:
         return clip  # No cropping
 
-# Define a function to add dynamic cursor highlight
-def add_cursor_highlight(frame, t, cursor_color, radius, opacity, clip):
-    # Make a writable copy of the frame
-    frame = np.copy(frame)
-    overlay = frame.copy()
+# Define a function to detect the cursor and add dynamic highlight
+def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
+    # Convert frame to grayscale for cursor detection
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Simulating dynamic cursor movement
-    height, width, _ = frame.shape
-    cursor_x = int((t / clip.duration) * width)  # Simulate cursor movement from left to right
-    cursor_y = int(height / 2)  # Keep it centered vertically
+    # Use thresholding to detect bright objects (like the cursor)
+    _, thresh = cv2.threshold(gray_frame, 240, 255, cv2.THRESH_BINARY)
 
-    # Draw the transparent circle for the cursor highlight
-    circle_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
-    cv2.circle(overlay, (cursor_x, cursor_y), radius, circle_color, -1)
-    
-    # Apply the overlay with transparency
-    cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-    
+    # Find contours to locate the cursor
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Highlight the largest contour, assuming it's the cursor
+    if contours:
+        largest_contour = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(largest_contour)
+
+        # Make a writable copy of the frame
+        overlay = frame.copy()
+
+        # Draw the transparent circle for the cursor highlight
+        cv2.circle(overlay, (x + w // 2, y + h // 2), radius, cursor_color, -1)
+
+        # Apply the overlay with transparency
+        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+
     return frame
 
 # Upload video
@@ -155,12 +162,12 @@ if uploaded_video and focus_button:
     # Apply aspect ratio cropping
     clip = apply_aspect_ratio(clip, selected_ratio)
 
-    # Define a function to process each frame with dynamic cursor highlight
+    # Define a function to process each frame with dynamic cursor detection and highlight
     def add_cursor_highlight_to_frame(get_frame, t):
         frame = get_frame(t)
-        return add_cursor_highlight(frame, t, cursor_color, radius, opacity, clip)
+        return detect_and_highlight_cursor(frame, cursor_color, radius, opacity)
 
-    # Apply cursor highlight frame-by-frame
+    # Apply cursor detection and highlight frame-by-frame
     highlighted_clip = clip.fl(add_cursor_highlight_to_frame)
 
     # Save the processed video
