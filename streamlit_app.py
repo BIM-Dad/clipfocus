@@ -26,37 +26,35 @@ def highlight_cursor(frame, color=(0, 0, 255), radius=20):
     
     return frame
 
-# Allow the user to upload a video
-uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
+# Create two columns with the correct ratio
+col1, col2 = st.columns([1, 3])  # 1:3 ratio for space allocation
 
+with col1:
+    st.subheader("Upload your tutorial video")
+    uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
+
+# Process and display in the second column
 if uploaded_video:
-    # Save the uploaded file temporarily
-    tfile = tempfile.NamedTemporaryFile(delete=False)
-    tfile.write(uploaded_video.read())
+    with col2:
+        # Save the uploaded file temporarily
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(uploaded_video.read())
 
-    # Open the video with OpenCV
-    cap = cv2.VideoCapture(tfile.name)
+        # Open the video with OpenCV
+        cap = cv2.VideoCapture(tfile.name)
 
-    if not cap.isOpened():
-        st.error("Error: Could not open the video file.")
-    else:
-        st.text("Video uploaded and ready for processing")
+        if not cap.isOpened():
+            st.error("Error: Could not open the video file.")
+        else:
+            st.text("Video uploaded and ready for processing")
 
-        # Define columns for desktop layout (side by side) and stacked for mobile
-        col1, col2 = st.columns([1, 2])  # Adjust the ratio to control space distribution
-
-        with col1:
-            st.header("Video Upload Area")
-            st.write("Upload a video and preview the progress here.")
-
-        with col2:
             # Get the total number of frames
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            # Set up the progress bar and placeholder for displaying current frame info
+            # Set up the progress bar and placeholder for displaying the video
             progress_bar = st.progress(0)
-            progress_text = st.empty()  # For displaying the current frame number
             stframe = st.empty()  # This is where the processed video will be displayed
+            progress_text = st.empty()  # For displaying the current frame number
 
             current_frame = 0
 
