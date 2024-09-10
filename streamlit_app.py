@@ -32,7 +32,7 @@ st.markdown("""
         padding: 10px;
         cursor: pointer;
         transition: border-color 0.3s;
-        text-align: center.
+        text-align: center;
     }
     .ratio-box.selected {
         border-color: #FF4B4B;
@@ -43,19 +43,19 @@ st.markdown("""
     }
     .box-square {
         width: 60px;
-        height: 60px.
+        height: 60px;
     }
     .box-landscape-small {
         width: 80px;
-        height: 60px.
+        height: 60px;
     }
     .box-landscape-large {
         width: 100px;
-        height: 56px.
+        height: 56px;
     }
     .stButton button {
         width: 100%;
-        height: 45px.
+        height: 45px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -77,6 +77,12 @@ def apply_aspect_ratio(clip, aspect_ratio):
     else:
         return clip  # No cropping
 
+# Function to convert hex color to BGR format for OpenCV
+def hex_to_bgr(hex_color):
+    hex_color = hex_color.lstrip('#')
+    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    return rgb[::-1]  # Reverse to get BGR
+
 # Define a function to detect the cursor and add dynamic highlight
 def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
     # Convert frame to grayscale for cursor detection
@@ -96,8 +102,11 @@ def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
         # Make a writable copy of the frame
         overlay = frame.copy()
 
+        # Convert hex color to BGR
+        bgr_color = hex_to_bgr(cursor_color)
+
         # Draw the transparent circle for the cursor highlight
-        cv2.circle(overlay, (x + w // 2, y + h // 2), radius, cursor_color, -1)
+        cv2.circle(overlay, (x + w // 2, y + h // 2), radius, bgr_color, -1)
 
         # Apply the overlay with transparency
         cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
