@@ -59,6 +59,18 @@ st.markdown("""
 
 st.title("ClipFocus")
 
+# Define a function to draw a transparent circle at the cursor location
+def highlight_cursor(frame, cursor_color=(255, 0, 0), opacity=0.5, radius=20):
+    overlay = frame.copy()  # Create a copy of the frame to apply the overlay
+    height, width, _ = frame.shape
+    # Calculate the center of the frame as the location for the circle
+    center_x, center_y = width // 2, height // 2
+    # Draw a filled circle on the overlay
+    cv2.circle(overlay, (center_x, center_y), radius, cursor_color, -1)
+    # Apply the overlay with transparency (using the specified opacity)
+    cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+    return frame
+
 def crop_to_ratio(frame, aspect_ratio):
     h, w, _ = frame.shape
     if aspect_ratio == "1:1":  # Square
@@ -84,6 +96,12 @@ def crop_to_ratio(frame, aspect_ratio):
 # Upload area
 st.subheader("Upload your tutorial video")
 uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
+
+# Cursor highlight settings
+st.subheader("Cursor Highlight Settings")
+cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")  # Default red
+opacity = st.slider("Select opacity for the highlight", min_value=0.1, max_value=1.0, value=0.5)
+radius = st.slider("Select the radius for the highlight", min_value=10, max_value=100, value=20)
 
 # Create columns for the expandable section and the Focus button to stay aligned
 col1, col2 = st.columns([6, 1])  # Increased width of the expandable area
@@ -152,8 +170,9 @@ if uploaded_video and focus_button:
             # Crop the frame to the selected aspect ratio
             cropped_frame = crop_to_ratio(frame, selected_ratio)
 
-            # Apply cursor highlighting to the cropped frame
-            highlighted_frame = highlight_cursor(cropped_frame)
+            # Apply cursor highlighting (add a transparent circle)
+            highlight_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))  # Convert hex to BGR
+            highlighted_frame = highlight_cursor(cropped_frame, cursor_color=highlight_color, opacity=opacity, radius=radius)
 
             # Convert and display the current frame in the stream
             highlighted_frame_rgb = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
