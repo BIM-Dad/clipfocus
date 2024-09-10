@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 import tempfile
+import os
 
 # Custom CSS to style the aspect ratio boxes and ensure full-width expander
 st.markdown("""
@@ -97,12 +98,6 @@ def crop_to_ratio(frame, aspect_ratio):
 st.subheader("Upload your tutorial video")
 uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
 
-# Cursor highlight settings
-st.subheader("Cursor Highlight Settings")
-cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")  # Default red
-opacity = st.slider("Select opacity for the highlight", min_value=0.1, max_value=1.0, value=0.5)
-radius = st.slider("Select the radius for the highlight", min_value=10, max_value=100, value=20)
-
 # Create columns for the expandable section and the Focus button to stay aligned
 col1, col2 = st.columns([6, 1])  # Increased width of the expandable area
 
@@ -133,6 +128,12 @@ with col1:
             st.markdown('<div class="ratio-box box-landscape-large selected">16:9</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Add the cursor highlight settings below the size options
+        st.subheader("Cursor Highlight Settings")
+        cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")  # Default red
+        opacity = st.slider("Select opacity for the highlight", min_value=0.1, max_value=1.0, value=0.5)
+        radius = st.slider("Select the radius for the highlight", min_value=10, max_value=100, value=20)
+
 with col2:
     # "Focus" button to trigger the processing, aligned to the right
     focus_button = st.button("Focus")
@@ -140,10 +141,15 @@ with col2:
 # Process the video and display the preview below the drag-and-drop area
 if uploaded_video and focus_button:
     st.subheader("Video Preview")
+    
     # Save the uploaded file temporarily
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_video.read())
-
+    
+    # Create a temporary file to save the processed video
+    processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video.mp4")
+    out = None  # VideoWriter will be initialized after getting the frame size
+    
     # Open the video with OpenCV
     cap = cv2.VideoCapture(tfile.name)
 
@@ -152,12 +158,18 @@ if uploaded_video and focus_button:
     else:
         st.text("Video uploaded and ready for processing")
 
-        # Get the total number of frames
+        # Get the total number of frames and frame properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
+        # Initialize VideoWriter for saving the processed video
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Video codec
+        out = cv2.VideoWriter(processed_video_path, fourcc, fps, (width, height))
+
         # Set up the progress bar and placeholder for displaying the video
         progress_bar = st.progress(0)
-        stframe = st.empty()  # This is where the processed video will be displayed
         progress_text = st.empty()  # For displaying the current frame number
 
         current_frame = 0
@@ -174,9 +186,8 @@ if uploaded_video and focus_button:
             highlight_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))  # Convert hex to BGR
             highlighted_frame = highlight_cursor(cropped_frame, cursor_color=highlight_color, opacity=opacity, radius=radius)
 
-            # Convert and display the current frame in the stream
-            highlighted_frame_rgb = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
-            stframe.image(highlighted_frame_rgb, caption=f"Frame {current_frame + 1}/{total_frames}", channels="RGB")
+            # Write the processed frame to the output video file
+            out.write(highlighted_frame)
 
             # Update the progress bar and text
             current_frame += 1
@@ -185,4 +196,13 @@ if uploaded_video and focus_button:
             progress_text.text(f"Processing frame {current_frame} of {total_frames}")
 
         cap.release()
+        out.release()
         st.success("Video processing complete!")
+
+        # Display the video player for the processed video
+        st.video(processed_video_path)
+
+        # Add a download button for the processed video
+        with open(processed_video_path, "rb") as f:
+            st.download_button("Download Processed Video", f, "processed_video.mp4", "video/mp4")
+
