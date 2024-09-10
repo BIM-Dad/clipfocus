@@ -62,30 +62,47 @@ st.markdown("""
 
 st.title("ClipFocus")
 
-# Define a function to apply the crop based on aspect ratio
+# Function to apply aspect ratio
 def apply_aspect_ratio(clip, aspect_ratio):
     if aspect_ratio == "1:1":
-        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w//2, y_center=clip.h//2)
+        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "4:3":
-        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
+        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "16:9":
-        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
+        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "9:16":
-        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w//2, y_center=clip.h//2)
+        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "3:4":
-        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
+        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
     else:
         return clip  # No cropping
 
-# Upload area
-st.subheader("Upload your tutorial video")
-uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
+# Define a function to add dynamic cursor highlight
+def add_cursor_highlight(frame, t, cursor_color, radius, opacity, clip):
+    overlay = frame.copy()
 
-# Create columns for the expandable section and the Focus button to stay aligned
+    # Simulating dynamic cursor movement
+    height, width, _ = frame.shape
+    cursor_x = int((t / clip.duration) * width)  # Simulate cursor movement from left to right
+    cursor_y = int(height / 2)  # Keep it centered vertically
+
+    # Draw the transparent circle for the cursor highlight
+    circle_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+    cv2.circle(overlay, (cursor_x, cursor_y), radius, circle_color, -1)
+    
+    # Apply the overlay with transparency
+    cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+    
+    return frame
+
+# Upload video
+uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
+
+# Create columns for the expandable section and the Focus button
 col1, col2 = st.columns([6, 1])
 
 with col1:
-    # Expandable "More Settings" section for Image Size selection
+    # Expandable "More Settings" section
     with st.expander("More Settings"):
         st.subheader("Image Size")
         
@@ -111,17 +128,17 @@ with col1:
             st.markdown('<div class="ratio-box box-landscape-large selected">16:9</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Add the cursor highlight settings below the size options
+        # Cursor highlight settings below aspect ratio
         st.subheader("Cursor Highlight Settings")
         cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")
         opacity = st.slider("Select opacity for the highlight", min_value=0.1, max_value=1.0, value=0.5)
         radius = st.slider("Select the radius for the highlight", min_value=10, max_value=100, value=20)
 
 with col2:
-    # "Focus" button to trigger the processing
+    # "Focus" button to trigger processing
     focus_button = st.button("Focus")
 
-# Process the video
+# Process the video and display the preview
 if uploaded_video and focus_button:
     st.subheader("Processing Video")
 
@@ -136,24 +153,13 @@ if uploaded_video and focus_button:
     # Apply aspect ratio cropping
     clip = apply_aspect_ratio(clip, selected_ratio)
 
-    # Add cursor highlight dynamically
-    def add_cursor_highlight(get_frame, t):
+    # Define a function to process each frame with dynamic cursor highlight
+    def add_cursor_highlight_to_frame(get_frame, t):
         frame = get_frame(t)
-        overlay = frame.copy()
+        return add_cursor_highlight(frame, t, cursor_color, radius, opacity, clip)
 
-        # Simulating dynamic cursor movement
-        height, width, _ = frame.shape
-        cursor_x = int((t / clip.duration) * width)  # Moving the cursor from left to right
-        cursor_y = int(height / 2)  # Keep it centered vertically
-
-        # Draw the transparent circle
-        circle_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
-        cv2.circle(overlay, (cursor_x, cursor_y), radius, circle_color, -1)
-        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-        return frame
-
-    # Apply the cursor highlight using moviepy's frame-by-frame processing
-    highlighted_clip = clip.fl_image(add_cursor_highlight)
+    # Apply cursor highlight frame-by-frame
+    highlighted_clip = clip.fl(add_cursor_highlight_to_frame)
 
     # Save the processed video
     processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
@@ -162,6 +168,6 @@ if uploaded_video and focus_button:
     # Display the video
     st.video(processed_video_path)
 
-    # Add a download button
+    # Add a download button for the processed video
     with open(processed_video_path, "rb") as f:
         st.download_button("Download Processed Video", f, "processed_video_with_audio.mp4", "video/mp4")
