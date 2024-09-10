@@ -3,8 +3,10 @@ import cv2
 import numpy as np
 import tempfile
 import os
+from moviepy.editor import VideoFileClip
+import moviepy.video.fx.all as vfx
 
-# Custom CSS to style the aspect ratio boxes and ensure full-width expander
+# Custom CSS for the UI layout
 st.markdown("""
     <style>
     .reportview-container .main .block-container {
@@ -12,7 +14,7 @@ st.markdown("""
         padding-right: 2rem;
     }
     .stExpander {
-        width: 100%;  /* Make the expander full width */
+        width: 100%;
     }
     .ratio-container {
         display: flex;
@@ -52,54 +54,35 @@ st.markdown("""
         height: 56px;
     }
     .stButton button {
-        width: 100%;  /* Make the Focus button full width */
-        height: 45px; /* Ensure the button height is consistent */
+        width: 100%;
+        height: 45px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("ClipFocus")
 
-# Define a function to draw a transparent circle at the cursor location
-def highlight_cursor(frame, cursor_color=(255, 0, 0), opacity=0.5, radius=20):
-    overlay = frame.copy()  # Create a copy of the frame to apply the overlay
-    height, width, _ = frame.shape
-    # Calculate the center of the frame as the location for the circle
-    center_x, center_y = width // 2, height // 2
-    # Draw a filled circle on the overlay
-    cv2.circle(overlay, (center_x, center_y), radius, cursor_color, -1)
-    # Apply the overlay with transparency (using the specified opacity)
-    cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-    return frame
-
-def crop_to_ratio(frame, aspect_ratio):
-    h, w, _ = frame.shape
-    if aspect_ratio == "1:1":  # Square
-        target_width = min(h, w)
-        start_x = (w - target_width) // 2
-        start_y = (h - target_width) // 2
-        return frame[start_y:start_y + target_width, start_x:start_x + target_width]
+# Define a function to apply the crop based on aspect ratio
+def apply_aspect_ratio(clip, aspect_ratio):
+    if aspect_ratio == "1:1":
+        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w//2, y_center=clip.h//2)
     elif aspect_ratio == "4:3":
-        target_width = int(h * 4 / 3)
+        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
     elif aspect_ratio == "16:9":
-        target_width = int(h * 16 / 9)
+        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
     elif aspect_ratio == "9:16":
-        target_width = int(h * 9 / 16)
-    elif aspect_ratio == "3:4":  # Added Portrait 3:4
-        target_width = int(h * 3 / 4)
+        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w//2, y_center=clip.h//2)
+    elif aspect_ratio == "3:4":
+        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w//2, y_center=clip.h//2)
     else:
-        return frame  # No cropping if no valid ratio is selected
-    
-    # Crop to center of the frame
-    start_x = (w - target_width) // 2
-    return frame[:, start_x:start_x + target_width]
+        return clip  # No cropping
 
 # Upload area
 st.subheader("Upload your tutorial video")
 uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
 
 # Create columns for the expandable section and the Focus button to stay aligned
-col1, col2 = st.columns([6, 1])  # Increased width of the expandable area
+col1, col2 = st.columns([6, 1])
 
 with col1:
     # Expandable "More Settings" section for Image Size selection
@@ -130,79 +113,55 @@ with col1:
 
         # Add the cursor highlight settings below the size options
         st.subheader("Cursor Highlight Settings")
-        cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")  # Default red
+        cursor_color = st.color_picker("Pick a cursor highlight color", "#FF0000")
         opacity = st.slider("Select opacity for the highlight", min_value=0.1, max_value=1.0, value=0.5)
         radius = st.slider("Select the radius for the highlight", min_value=10, max_value=100, value=20)
 
 with col2:
-    # "Focus" button to trigger the processing, aligned to the right
+    # "Focus" button to trigger the processing
     focus_button = st.button("Focus")
 
-# Process the video and display the preview below the drag-and-drop area
+# Process the video
 if uploaded_video and focus_button:
-    st.subheader("Video Preview")
-    
-    # Save the uploaded file temporarily
+    st.subheader("Processing Video")
+
+    # Save uploaded video temporarily
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_video.read())
-    
-    # Create a temporary file to save the processed video
-    processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video.mp4")
-    out = None  # VideoWriter will be initialized after getting the frame size
-    
-    # Open the video with OpenCV
-    cap = cv2.VideoCapture(tfile.name)
+    tfile.flush()
 
-    if not cap.isOpened():
-        st.error("Error: Could not open the video file.")
-    else:
-        st.text("Video uploaded and ready for processing")
+    # Load video with MoviePy
+    clip = VideoFileClip(tfile.name)
 
-        # Get the total number of frames and frame properties
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        # Initialize VideoWriter for saving the processed video
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Video codec
-        out = cv2.VideoWriter(processed_video_path, fourcc, fps, (width, height))
+    # Apply aspect ratio cropping
+    clip = apply_aspect_ratio(clip, selected_ratio)
 
-        # Set up the progress bar and placeholder for displaying the video
-        progress_bar = st.progress(0)
-        progress_text = st.empty()  # For displaying the current frame number
+    # Add cursor highlight dynamically
+    def add_cursor_highlight(get_frame, t):
+        frame = get_frame(t)
+        overlay = frame.copy()
 
-        current_frame = 0
+        # Simulating dynamic cursor movement
+        height, width, _ = frame.shape
+        cursor_x = int((t / clip.duration) * width)  # Moving the cursor from left to right
+        cursor_y = int(height / 2)  # Keep it centered vertically
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+        # Draw the transparent circle
+        circle_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+        cv2.circle(overlay, (cursor_x, cursor_y), radius, circle_color, -1)
+        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+        return frame
 
-            # Crop the frame to the selected aspect ratio
-            cropped_frame = crop_to_ratio(frame, selected_ratio)
+    # Apply the cursor highlight using moviepy's frame-by-frame processing
+    highlighted_clip = clip.fl_image(add_cursor_highlight)
 
-            # Apply cursor highlighting (add a transparent circle)
-            highlight_color = tuple(int(cursor_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))  # Convert hex to BGR
-            highlighted_frame = highlight_cursor(cropped_frame, cursor_color=highlight_color, opacity=opacity, radius=radius)
+    # Save the processed video
+    processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
+    highlighted_clip.write_videofile(processed_video_path, codec="libx264", audio=True)
 
-            # Write the processed frame to the output video file
-            out.write(highlighted_frame)
+    # Display the video
+    st.video(processed_video_path)
 
-            # Update the progress bar and text
-            current_frame += 1
-            progress_percentage = int((current_frame / total_frames) * 100)
-            progress_bar.progress(progress_percentage)
-            progress_text.text(f"Processing frame {current_frame} of {total_frames}")
-
-        cap.release()
-        out.release()
-        st.success("Video processing complete!")
-
-        # Display the video player for the processed video
-        st.video(processed_video_path)
-
-        # Add a download button for the processed video
-        with open(processed_video_path, "rb") as f:
-            st.download_button("Download Processed Video", f, "processed_video.mp4", "video/mp4")
-
+    # Add a download button
+    with open(processed_video_path, "rb") as f:
+        st.download_button("Download Processed Video", f, "processed_video_with_audio.mp4", "video/mp4")
