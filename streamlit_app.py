@@ -42,36 +42,44 @@ if uploaded_video:
     else:
         st.text("Video uploaded and ready for processing")
 
-        # Get the total number of frames
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        # Set up the progress bar and placeholder for displaying current frame info
-        progress_bar = st.progress(0)
-        progress_text = st.empty()  # For displaying the current frame number
-        stframe = st.empty()  # This is where the processed video will be displayed
+        # Define columns for desktop layout (side by side) and stacked for mobile
+        col1, col2 = st.columns([1, 2])  # Adjust the ratio to control space distribution
 
-        current_frame = 0
+        with col1:
+            st.header("Video Upload Area")
+            st.write("Upload a video and preview the progress here.")
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+        with col2:
+            # Get the total number of frames
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            # Set up the progress bar and placeholder for displaying current frame info
+            progress_bar = st.progress(0)
+            progress_text = st.empty()  # For displaying the current frame number
+            stframe = st.empty()  # This is where the processed video will be displayed
 
-            # Crop the frame to vertical format
-            cropped_frame = crop_to_vertical(frame)
+            current_frame = 0
 
-            # Apply cursor highlighting to the cropped frame
-            highlighted_frame = highlight_cursor(cropped_frame)
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-            # Convert and display the current frame in the stream
-            highlighted_frame_rgb = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
-            stframe.image(highlighted_frame_rgb, caption=f"Frame {current_frame + 1}/{total_frames}", channels="RGB")
+                # Crop the frame to vertical format
+                cropped_frame = crop_to_vertical(frame)
 
-            # Update the progress bar and text
-            current_frame += 1
-            progress_percentage = int((current_frame / total_frames) * 100)
-            progress_bar.progress(progress_percentage)
-            progress_text.text(f"Processing frame {current_frame} of {total_frames}")
+                # Apply cursor highlighting to the cropped frame
+                highlighted_frame = highlight_cursor(cropped_frame)
 
-        cap.release()
-        st.success("Video processing complete!")
+                # Convert and display the current frame in the stream
+                highlighted_frame_rgb = cv2.cvtColor(highlighted_frame, cv2.COLOR_BGR2RGB)
+                stframe.image(highlighted_frame_rgb, caption=f"Frame {current_frame + 1}/{total_frames}", channels="RGB")
+
+                # Update the progress bar and text
+                current_frame += 1
+                progress_percentage = int((current_frame / total_frames) * 100)
+                progress_bar.progress(progress_percentage)
+                progress_text.text(f"Processing frame {current_frame} of {total_frames}")
+
+            cap.release()
+            st.success("Video processing complete!")
