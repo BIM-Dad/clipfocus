@@ -85,6 +85,9 @@ def hex_to_bgr(hex_color):
 
 # Define a function to detect the cursor and add dynamic highlight
 def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
+    # Make a writable copy of the frame
+    frame = np.copy(frame)
+    
     # Convert frame to grayscale for cursor detection
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -99,13 +102,11 @@ def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
         largest_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(largest_contour)
 
-        # Make a writable copy of the frame
-        overlay = frame.copy()
-
         # Convert hex color to BGR
         bgr_color = hex_to_bgr(cursor_color)
 
         # Draw the transparent circle for the cursor highlight
+        overlay = frame.copy()
         cv2.circle(overlay, (x + w // 2, y + h // 2), radius, bgr_color, -1)
 
         # Apply the overlay with transparency
