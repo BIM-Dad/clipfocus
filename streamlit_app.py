@@ -3,6 +3,21 @@ import cv2
 import numpy as np
 import tempfile
 
+# Custom CSS to reduce padding and add a border around the video frame
+st.markdown("""
+    <style>
+    .reportview-container .main .block-container {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    .stImage > div {
+        border: 2px solid #FF4B4B;  /* Red outline for the video preview */
+        padding: 10px;
+        border-radius: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("ClipFocus")
 
 def crop_to_vertical(frame):
@@ -26,8 +41,8 @@ def highlight_cursor(frame, color=(0, 0, 255), radius=20):
     
     return frame
 
-# Create two columns with the correct ratio
-col1, col2 = st.columns([1, 3])  # 1:3 ratio for space allocation
+# Create two columns with an adjusted ratio
+col1, col2 = st.columns([1.5, 2.5])  # Adjust the ratio to widen both columns
 
 with col1:
     st.subheader("Upload your tutorial video")
