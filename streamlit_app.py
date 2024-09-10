@@ -79,6 +79,8 @@ def apply_aspect_ratio(clip, aspect_ratio):
 
 # Define a function to add dynamic cursor highlight
 def add_cursor_highlight(frame, t, cursor_color, radius, opacity, clip):
+    # Make a writable copy of the frame
+    frame = np.copy(frame)
     overlay = frame.copy()
 
     # Simulating dynamic cursor movement
