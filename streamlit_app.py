@@ -3,24 +3,56 @@ import cv2
 import numpy as np
 import tempfile
 
-# Custom CSS for styling, full-width button, and matching height
+# Custom CSS to style the aspect ratio boxes and ensure full-width expander
 st.markdown("""
     <style>
     .reportview-container .main .block-container {
         padding-left: 2rem;
         padding-right: 2rem;
     }
-    .stImage > div {
-        border: 2px solid #FF4B4B;  /* Red outline for the video preview */
-        padding: 10px;
+    .stExpander {
+        width: 100%;  /* Make the expander full width */
+    }
+    .ratio-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+    .ratio-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid #ddd;
         border-radius: 5px;
+        padding: 10px;
+        cursor: pointer;
+        transition: border-color 0.3s;
+        text-align: center;
+    }
+    .ratio-box.selected {
+        border-color: #FF4B4B;
+    }
+    .box-portrait-9-16, .box-portrait-3-4 {
+        width: 40px;
+        height: 70px;
+    }
+    .box-square {
+        width: 60px;
+        height: 60px;
+    }
+    .box-landscape-small {
+        width: 80px;
+        height: 60px;
+    }
+    .box-landscape-large {
+        width: 100px;
+        height: 56px;
     }
     .stButton button {
-        width: 100%;  /* Make the Focus button fill the available width */
-        height: 45px;  /* Set height to match the More Settings expander */
-    }
-    .stExpander {
-        height: 45px;  /* Set the height for the More Settings expander */
+        width: 100%;  /* Make the Focus button full width */
+        height: 45px; /* Ensure the button height is consistent */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -40,6 +72,8 @@ def crop_to_ratio(frame, aspect_ratio):
         target_width = int(h * 16 / 9)
     elif aspect_ratio == "9:16":
         target_width = int(h * 9 / 16)
+    elif aspect_ratio == "3:4":  # Added Portrait 3:4
+        target_width = int(h * 3 / 4)
     else:
         return frame  # No cropping if no valid ratio is selected
     
@@ -47,39 +81,43 @@ def crop_to_ratio(frame, aspect_ratio):
     start_x = (w - target_width) // 2
     return frame[:, start_x:start_x + target_width]
 
-def highlight_cursor(frame, color=(0, 0, 255), radius=20):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        cv2.circle(frame, (x + w // 2, y + h // 2), radius, color, 3)
-    
-    return frame
-
 # Upload area
 st.subheader("Upload your tutorial video")
 uploaded_video = st.file_uploader("Drag and drop file here", type=["mp4", "mov"])
 
-# Use Streamlit's built-in column layout to align "More Settings" and "Focus" button on the same row
-col1, col2 = st.columns([4, 1])  # Adjust the column widths as needed
+# Create columns for the expandable section and the Focus button to stay aligned
+col1, col2 = st.columns([6, 1])  # Increased width of the expandable area
 
 with col1:
-    # Add the expandable "More Settings" section
+    # Expandable "More Settings" section for Image Size selection
     with st.expander("More Settings"):
         st.subheader("Image Size")
-        aspect_ratio = st.radio(
-            "Select Aspect Ratio", 
-            options=["1:1", "4:3", "16:9", "9:16"], 
-            index=3, 
+        
+        # Aspect Ratio Selection
+        selected_ratio = st.radio(
+            "Aspect Ratio",
+            options=["Portrait (9:16)", "Portrait (3:4)", "Square (1:1)", "Landscape (4:3)", "Landscape (16:9)"],
+            index=2,
             horizontal=True
         )
 
+        # Display boxes based on the selected aspect ratio
+        st.markdown('<div class="ratio-container">', unsafe_allow_html=True)
+        if selected_ratio == "Portrait (9:16)":
+            st.markdown('<div class="ratio-box box-portrait-9-16 selected">9:16</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Portrait (3:4)":
+            st.markdown('<div class="ratio-box box-portrait-3-4 selected">3:4</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Square (1:1)":
+            st.markdown('<div class="ratio-box box-square selected">1:1</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Landscape (4:3)":
+            st.markdown('<div class="ratio-box box-landscape-small selected">4:3</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Landscape (16:9)":
+            st.markdown('<div class="ratio-box box-landscape-large selected">16:9</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
 with col2:
-    # Add the "Focus" button aligned to the right, filling the space
-    focus_button = st.button("Focus", key="focus_button")
+    # "Focus" button to trigger the processing, aligned to the right
+    focus_button = st.button("Focus")
 
 # Process the video and display the preview below the drag-and-drop area
 if uploaded_video and focus_button:
@@ -112,7 +150,7 @@ if uploaded_video and focus_button:
                 break
 
             # Crop the frame to the selected aspect ratio
-            cropped_frame = crop_to_ratio(frame, aspect_ratio)
+            cropped_frame = crop_to_ratio(frame, selected_ratio)
 
             # Apply cursor highlighting to the cropped frame
             highlighted_frame = highlight_cursor(cropped_frame)
