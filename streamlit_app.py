@@ -64,18 +64,26 @@ st.title("ClipFocus")
 
 # Function to apply aspect ratio
 def apply_aspect_ratio(clip, aspect_ratio):
+    clip_width, clip_height = clip.size
+
     if aspect_ratio == "1:1":
-        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w // 2, y_center=clip.h // 2)
+        crop_size = min(clip_width, clip_height)
+        return vfx.crop(clip, width=crop_size, height=crop_size, x_center=clip_width // 2, y_center=clip_height // 2)
     elif aspect_ratio == "4:3":
-        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+        new_width = int(clip_height * 4 / 3)
+        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
     elif aspect_ratio == "16:9":
-        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+        new_width = int(clip_height * 16 / 9)
+        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
     elif aspect_ratio == "9:16":
-        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w // 2, y_center=clip.h // 2)
+        new_height = int(clip_width * 16 / 9)
+        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width // 2, y_center=clip_height // 2)
     elif aspect_ratio == "3:4":
-        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+        new_width = int(clip_height * 3 / 4)
+        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
     else:
-        return clip  # No cropping
+        return clip  # No cropping if no valid aspect ratio is selected
+
 
 # Upload video
 uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
