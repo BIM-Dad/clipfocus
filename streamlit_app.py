@@ -62,28 +62,27 @@ st.markdown("""
 
 st.title("ClipFocus")
 
-# Function to apply aspect ratio
+# Updated function to correctly apply aspect ratio
 def apply_aspect_ratio(clip, aspect_ratio):
     clip_width, clip_height = clip.size
 
-    if aspect_ratio == "1:1":
+    if aspect_ratio == "Square (1:1)":
         crop_size = min(clip_width, clip_height)
-        return vfx.crop(clip, width=crop_size, height=crop_size, x_center=clip_width // 2, y_center=clip_height // 2)
-    elif aspect_ratio == "4:3":
+        return vfx.crop(clip, width=crop_size, height=crop_size, x_center=clip_width//2, y_center=clip_height//2)
+    elif aspect_ratio == "Landscape (4:3)":
         new_width = int(clip_height * 4 / 3)
-        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
-    elif aspect_ratio == "16:9":
+        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width//2, y_center=clip_height//2)
+    elif aspect_ratio == "Landscape (16:9)":
         new_width = int(clip_height * 16 / 9)
-        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
-    elif aspect_ratio == "9:16":
+        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width//2, y_center=clip_height//2)
+    elif aspect_ratio == "Portrait (9:16)":
         new_height = int(clip_width * 16 / 9)
-        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width // 2, y_center=clip_height // 2)
-    elif aspect_ratio == "3:4":
-        new_width = int(clip_height * 3 / 4)
-        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
+        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width//2, y_center=clip_height//2)
+    elif aspect_ratio == "Portrait (3:4)":
+        new_height = int(clip_width * 4 / 3)
+        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width//2, y_center=clip_height//2)
     else:
-        return clip  # No cropping if no valid aspect ratio is selected
-
+        return clip  # No cropping if no valid option is selected
 
 # Upload video
 uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
