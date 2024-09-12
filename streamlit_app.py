@@ -16,8 +16,8 @@ def hex_to_bgr(hex_color):
 
 # Function to dynamically crop the frame around the cursor
 def dynamic_crop(frame, cursor_x, cursor_y, aspect_ratio, frame_width, frame_height):
-    crop_width, crop_height = frame_width, frame_height
-
+    crop_width, crop_height = frame_width, frame_height  # Initialize to frame size
+    
     if aspect_ratio == "1:1":
         crop_width = crop_height = min(frame_width, frame_height)
     elif aspect_ratio == "4:3":
