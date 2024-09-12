@@ -136,7 +136,7 @@ if uploaded_video and focus_button:
 
     # Define a function to update progress as frames are processed
     def update_progress(get_frame, t):
-        nonlocal current_frame
+        global current_frame
         frame = get_frame(t)
         current_frame += 1
         progress_bar.progress(min(current_frame / n_frames, 1.0))
