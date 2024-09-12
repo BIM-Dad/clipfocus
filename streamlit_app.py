@@ -62,42 +62,26 @@ st.markdown("""
 
 st.title("ClipFocus")
 
-# Updated function to correctly apply aspect ratio
+# Function to apply aspect ratio
 def apply_aspect_ratio(clip, aspect_ratio):
-    clip_width, clip_height = clip.size
-
-    st.write(f"Original Clip Dimensions: {clip_width}x{clip_height}")  # Print original dimensions for debugging
-
-    if aspect_ratio == "Square (1:1)":
-        crop_size = min(clip_width, clip_height)
-        st.write(f"Cropping to 1:1 with size: {crop_size}")
-        return vfx.crop(clip, width=crop_size, height=crop_size, x_center=clip_width // 2, y_center=clip_height // 2)
-    
-    elif aspect_ratio == "Landscape (4:3)":
-        new_width = int(clip_height * 4 / 3)
-        st.write(f"Cropping to 4:3 with new width: {new_width}")
-        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
-    
-    elif aspect_ratio == "Landscape (16:9)":
-        new_width = int(clip_height * 16 / 9)
-        st.write(f"Cropping to 16:9 with new width: {new_width}")
-        return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
-    
-    elif aspect_ratio == "Portrait (9:16)":
-        new_width = clip_height
-        new_height = clip_width
-        st.write(f"Cropping to 9:16 with new dimensions: {new_width}x{new_height}")
-        return vfx.crop(clip, width=new_height, height=new_width, x_center=clip_width // 2, y_center=clip_height // 2)
-    
-    elif aspect_ratio == "Portrait (3:4)":
-        new_width = clip_height
-        new_height = int(clip_width * 4 / 3)
-        st.write(f"Cropping to 3:4 with new dimensions: {new_width}x{new_height}")
-        return vfx.crop(clip, width=new_height, height=new_width, x_center=clip_width // 2, y_center=clip_height // 2)
-    
+    if aspect_ratio == "1:1":
+        side = min(clip.size)
+        return vfx.crop(clip, width=side, height=side, x_center=clip.w // 2, y_center=clip.h // 2)
+    elif aspect_ratio == "4:3":
+        width = int(clip.h * 4 / 3)
+        return vfx.crop(clip, width=width, height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+    elif aspect_ratio == "16:9":
+        width = int(clip.h * 16 / 9)
+        return vfx.crop(clip, width=width, height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+    elif aspect_ratio == "9:16":  # Flipping the dimensions for portrait
+        height = int(clip.w * 16 / 9)
+        return vfx.crop(clip, width=clip.w, height=height, x_center=clip.w // 2, y_center=clip.h // 2)
+    elif aspect_ratio == "3:4":
+        height = int(clip.w * 4 / 3)
+        return vfx.crop(clip, width=clip.w, height=height, x_center=clip.w // 2, y_center=clip.h // 2)
     else:
-        st.write("No cropping applied.")
-        return clip
+        return clip  # No cropping if aspect ratio is not matched
+
 
 # Upload video
 uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
@@ -163,7 +147,7 @@ if uploaded_video and focus_button:
     processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
     final_clip.write_videofile(processed_video_path, codec="libx264", audio=True)
 
-    # Display the video
+    # Show the video preview
     st.video(processed_video_path)
 
     # Add a download button for the processed video
