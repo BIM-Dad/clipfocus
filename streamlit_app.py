@@ -148,28 +148,20 @@ if uploaded_video and focus_button:
     # Load video with MoviePy
     clip = VideoFileClip(tfile.name)
 
-    # Apply aspect ratio cropping
-    clip = apply_aspect_ratio(clip, selected_ratio)
+    # Apply aspect ratio cropping - this step must happen before any other processing
+    cropped_clip = apply_aspect_ratio(clip, selected_ratio)
 
-    # Progress bar
-    progress_bar = st.progress(0)
-    n_frames = clip.reader.nframes
-    current_frame = 0
-
-    # Define a function to update progress as frames are processed
-    def update_progress(get_frame, t):
-        global current_frame
+    # Define a function to process each frame (if any other processing is needed later)
+    def process_frame(get_frame, t):
         frame = get_frame(t)
-        current_frame += 1
-        progress_bar.progress(min(current_frame / n_frames, 1.0))
-        return frame
+        return frame  # Here you can modify or process the frame further if needed
 
-    # Apply frame processing with progress tracking
-    processed_clip = clip.fl(update_progress)
+    # Apply any further frame-by-frame processing (if required, but skipping for now)
+    final_clip = cropped_clip.fl(process_frame)
 
     # Save the processed video
     processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
-    processed_clip.write_videofile(processed_video_path, codec="libx264", audio=True)
+    final_clip.write_videofile(processed_video_path, codec="libx264", audio=True)
 
     # Display the video
     st.video(processed_video_path)
