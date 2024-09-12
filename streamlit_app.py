@@ -1,4 +1,6 @@
 import streamlit as st
+import cv2
+import numpy as np
 import tempfile
 import os
 from moviepy.editor import VideoFileClip
@@ -127,9 +129,25 @@ if uploaded_video and focus_button:
     # Apply aspect ratio cropping
     clip = apply_aspect_ratio(clip, selected_ratio)
 
+    # Progress bar
+    progress_bar = st.progress(0)
+    n_frames = clip.reader.nframes
+    current_frame = 0
+
+    # Define a function to update progress as frames are processed
+    def update_progress(get_frame, t):
+        nonlocal current_frame
+        frame = get_frame(t)
+        current_frame += 1
+        progress_bar.progress(min(current_frame / n_frames, 1.0))
+        return frame
+
+    # Apply frame processing with progress tracking
+    processed_clip = clip.fl(update_progress)
+
     # Save the processed video
     processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
-    clip.write_videofile(processed_video_path, codec="libx264", audio=True)
+    processed_clip.write_videofile(processed_video_path, codec="libx264", audio=True)
 
     # Display the video
     st.video(processed_video_path)
