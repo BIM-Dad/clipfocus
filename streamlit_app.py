@@ -1,114 +1,139 @@
 import streamlit as st
-import cv2
 import tempfile
-import numpy as np
-from moviepy.editor import VideoFileClip
 import os
+from moviepy.editor import VideoFileClip
+import moviepy.video.fx.all as vfx
 
-# Function to convert hex color to BGR format for OpenCV
-def hex_to_bgr(hex_color):
-    hex_color = hex_color.lstrip('#')
-    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    return rgb[::-1]  # Reverse to get BGR
+# Custom CSS for the UI layout
+st.markdown("""
+    <style>
+    .reportview-container .main .block-container {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    .stExpander {
+        width: 100%;
+    }
+    .ratio-container {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+    .ratio-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        cursor: pointer;
+        transition: border-color 0.3s;
+        text-align: center;
+    }
+    .ratio-box.selected {
+        border-color: #FF4B4B;
+    }
+    .box-portrait-9-16, .box-portrait-3-4 {
+        width: 40px;
+        height: 70px;
+    }
+    .box-square {
+        width: 60px;
+        height: 60px;
+    }
+    .box-landscape-small {
+        width: 80px;
+        height: 60px;
+    }
+    .box-landscape-large {
+        width: 100px;
+        height: 56px;
+    }
+    .stButton button {
+        width: 100%;
+        height: 45px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Function to dynamically crop the frame around the cursor
-def dynamic_crop(frame, cursor_x, cursor_y, aspect_ratio, frame_width, frame_height):
-    crop_width, crop_height = frame_width, frame_height  # Initialize to frame size
-    
+st.title("ClipFocus")
+
+# Function to apply aspect ratio
+def apply_aspect_ratio(clip, aspect_ratio):
     if aspect_ratio == "1:1":
-        crop_width = crop_height = min(frame_width, frame_height)
+        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "4:3":
-        crop_width = int(frame_height * 4 / 3)
-        crop_height = frame_height
+        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "16:9":
-        crop_width = int(frame_height * 16 / 9)
-        crop_height = frame_height
+        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "9:16":
-        crop_height = int(frame_width * 16 / 9)
-        crop_width = frame_width
+        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w // 2, y_center=clip.h // 2)
     elif aspect_ratio == "3:4":
-        crop_height = frame_height
-        crop_width = int(frame_height * 3 / 4)
-
-    # Ensure cropping doesn't go out of bounds
-    x_min = max(0, cursor_x - crop_width // 2)
-    y_min = max(0, cursor_y - crop_height // 2)
-    x_max = min(frame_width, x_min + crop_width)
-    y_max = min(frame_height, y_min + crop_height)
-    
-    return frame[y_min:y_max, x_min:x_max]
-
-# Function to detect cursor
-def detect_cursor(frame):
-    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray_frame, 240, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        return x + w // 2, y + h // 2  # Return cursor center
-    return None, None
-
-# Add cursor highlight with cropping
-def add_cursor_highlight_to_frame(get_frame, t):
-    frame = get_frame(t).copy()  # Copy the frame to make it writable
-    cursor_x, cursor_y = detect_cursor(frame)
-
-    if cursor_x is not None and cursor_y is not None:
-        frame = dynamic_crop(frame, cursor_x, cursor_y, selected_ratio, frame.shape[1], frame.shape[0])
-        overlay = frame.copy()
-        bgr_color = hex_to_bgr(cursor_color)
-        cv2.circle(overlay, (cursor_x, cursor_y), radius, bgr_color, -1)
-        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-
-    return frame
-
-# Streamlit app UI
-st.title("ClipFocus: Cursor Highlighting and Cropping Tool")
+        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+    else:
+        return clip  # No cropping
 
 # Upload video
-uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "avi", "mov"])
+uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
 
-# Expandable settings for aspect ratio, highlight color, etc.
-with st.expander("More Settings"):
-    st.subheader("Image Size")
-    selected_ratio = st.radio(
-        "Aspect Ratio",
-        options=["16:9", "9:16", "4:3", "1:1", "3:4"],
-        index=0,
-        horizontal=True
-    )
+# Create columns for the expandable section and the Focus button
+col1, col2 = st.columns([6, 1])
 
-    st.subheader("Cursor Highlight Settings")
-    cursor_color = st.color_picker("Pick cursor highlight color", "#FF0000")
-    radius = st.slider("Cursor highlight size (px)", 5, 50, 15)
-    opacity = st.slider("Cursor highlight opacity", 0.1, 1.0, 0.5)
+with col1:
+    # Expandable "More Settings" section
+    with st.expander("More Settings"):
+        st.subheader("Image Size")
+        
+        # Aspect Ratio Selection
+        selected_ratio = st.radio(
+            "Aspect Ratio",
+            options=["Portrait (9:16)", "Portrait (3:4)", "Square (1:1)", "Landscape (4:3)", "Landscape (16:9)"],
+            index=2,
+            horizontal=True
+        )
 
-# Process video when "Focus" button is pressed
-if uploaded_video:
+        # Display boxes based on the selected aspect ratio
+        st.markdown('<div class="ratio-container">', unsafe_allow_html=True)
+        if selected_ratio == "Portrait (9:16)":
+            st.markdown('<div class="ratio-box box-portrait-9-16 selected">9:16</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Portrait (3:4)":
+            st.markdown('<div class="ratio-box box-portrait-3-4 selected">3:4</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Square (1:1)":
+            st.markdown('<div class="ratio-box box-square selected">1:1</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Landscape (4:3)":
+            st.markdown('<div class="ratio-box box-landscape-small selected">4:3</div>', unsafe_allow_html=True)
+        elif selected_ratio == "Landscape (16:9)":
+            st.markdown('<div class="ratio-box box-landscape-large selected">16:9</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+with col2:
+    # "Focus" button to trigger processing
     focus_button = st.button("Focus")
-    if focus_button:
-        st.subheader("Processing Video")
-        
-        # Save uploaded video temporarily
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(uploaded_video.read())
-        
-        # Load video
-        video_clip = VideoFileClip(tfile.name)
 
-        # Apply cursor highlighting and cropping
-        highlighted_clip = video_clip.fl_image(lambda frame: add_cursor_highlight_to_frame(lambda t: frame, 0))
+# Process the video and display the preview
+if uploaded_video and focus_button:
+    st.subheader("Processing Video")
 
-        # Save the processed video
-        processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
-        highlighted_clip.write_videofile(processed_video_path, codec="libx264", audio_codec="aac")
-        
-        # Display the video
-        st.video(processed_video_path)
-        
-        # Add a download button for the processed video
-        with open(processed_video_path, "rb") as f:
-            st.download_button("Download Processed Video", f, "processed_video_with_audio.mp4")
+    # Save uploaded video temporarily
+    tfile = tempfile.NamedTemporaryFile(delete=False)
+    tfile.write(uploaded_video.read())
+    tfile.flush()
 
+    # Load video with MoviePy
+    clip = VideoFileClip(tfile.name)
+
+    # Apply aspect ratio cropping
+    clip = apply_aspect_ratio(clip, selected_ratio)
+
+    # Save the processed video
+    processed_video_path = os.path.join(tempfile.gettempdir(), "processed_video_with_audio.mp4")
+    clip.write_videofile(processed_video_path, codec="libx264", audio=True)
+
+    # Display the video
+    st.video(processed_video_path)
+
+    # Add a download button for the processed video
+    with open(processed_video_path, "rb") as f:
+        st.download_button("Download Processed Video", f, "processed_video_with_audio.mp4", "video/mp4")
