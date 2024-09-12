@@ -66,28 +66,35 @@ st.title("ClipFocus")
 def apply_aspect_ratio(clip, aspect_ratio):
     clip_width, clip_height = clip.size
 
-    st.write(f"Original Clip Dimensions: {clip_width}x{clip_height}")  # Print clip size for debugging
+    st.write(f"Original Clip Dimensions: {clip_width}x{clip_height}")  # Print original dimensions for debugging
 
     if aspect_ratio == "Square (1:1)":
         crop_size = min(clip_width, clip_height)
         st.write(f"Cropping to 1:1 with size: {crop_size}")
         return vfx.crop(clip, width=crop_size, height=crop_size, x_center=clip_width // 2, y_center=clip_height // 2)
+    
     elif aspect_ratio == "Landscape (4:3)":
         new_width = int(clip_height * 4 / 3)
         st.write(f"Cropping to 4:3 with new width: {new_width}")
         return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
+    
     elif aspect_ratio == "Landscape (16:9)":
         new_width = int(clip_height * 16 / 9)
         st.write(f"Cropping to 16:9 with new width: {new_width}")
         return vfx.crop(clip, width=new_width, height=clip_height, x_center=clip_width // 2, y_center=clip_height // 2)
+    
     elif aspect_ratio == "Portrait (9:16)":
-        new_height = int(clip_width * 16 / 9)
-        st.write(f"Cropping to 9:16 with new height: {new_height}")
-        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width // 2, y_center=clip_height // 2)
+        new_width = clip_height
+        new_height = clip_width
+        st.write(f"Cropping to 9:16 with new dimensions: {new_width}x{new_height}")
+        return vfx.crop(clip, width=new_height, height=new_width, x_center=clip_width // 2, y_center=clip_height // 2)
+    
     elif aspect_ratio == "Portrait (3:4)":
+        new_width = clip_height
         new_height = int(clip_width * 4 / 3)
-        st.write(f"Cropping to 3:4 with new height: {new_height}")
-        return vfx.crop(clip, width=clip_width, height=new_height, x_center=clip_width // 2, y_center=clip_height // 2)
+        st.write(f"Cropping to 3:4 with new dimensions: {new_width}x{new_height}")
+        return vfx.crop(clip, width=new_height, height=new_width, x_center=clip_width // 2, y_center=clip_height // 2)
+    
     else:
         st.write("No cropping applied.")
         return clip
