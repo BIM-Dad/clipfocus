@@ -62,20 +62,30 @@ st.markdown("""
 
 st.title("ClipFocus")
 
-# Function to apply aspect ratio
-def apply_aspect_ratio(clip, aspect_ratio):
+# Function to apply dynamic aspect ratio cropping around the cursor
+def dynamic_crop(frame, cursor_x, cursor_y, aspect_ratio, frame_width, frame_height):
     if aspect_ratio == "1:1":
-        return vfx.crop(clip, width=min(clip.size), height=min(clip.size), x_center=clip.w // 2, y_center=clip.h // 2)
+        crop_width = crop_height = min(frame_width, frame_height)
     elif aspect_ratio == "4:3":
-        return vfx.crop(clip, width=int(clip.h * 4 / 3), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+        crop_width = int(frame_height * 4 / 3)
+        crop_height = frame_height
     elif aspect_ratio == "16:9":
-        return vfx.crop(clip, width=int(clip.h * 16 / 9), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
+        crop_width = int(frame_height * 16 / 9)
+        crop_height = frame_height
     elif aspect_ratio == "9:16":
-        return vfx.crop(clip, width=clip.w, height=int(clip.w * 16 / 9), x_center=clip.w // 2, y_center=clip.h // 2)
+        crop_height = int(frame_width * 16 / 9)
+        crop_width = frame_width
     elif aspect_ratio == "3:4":
-        return vfx.crop(clip, width=int(clip.h * 3 / 4), height=clip.h, x_center=clip.w // 2, y_center=clip.h // 2)
-    else:
-        return clip  # No cropping
+        crop_height = frame_height
+        crop_width = int(frame_height * 3 / 4)
+    
+    # Ensure cropping doesn't go out of bounds
+    x_min = max(0, cursor_x - crop_width // 2)
+    y_min = max(0, cursor_y - crop_height // 2)
+    x_max = min(frame_width, x_min + crop_width)
+    y_max = min(frame_height, y_min + crop_height)
+    
+    return frame[y_min:y_max, x_min:x_max]
 
 # Function to convert hex color to BGR format for OpenCV
 def hex_to_bgr(hex_color):
@@ -84,35 +94,16 @@ def hex_to_bgr(hex_color):
     return rgb[::-1]  # Reverse to get BGR
 
 # Define a function to detect the cursor and add dynamic highlight
-def detect_and_highlight_cursor(frame, cursor_color, radius, opacity):
-    # Make a writable copy of the frame
-    frame = np.copy(frame)
-    
-    # Convert frame to grayscale for cursor detection
+def detect_cursor(frame):
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Use thresholding to detect bright objects (like the cursor)
     _, thresh = cv2.threshold(gray_frame, 240, 255, cv2.THRESH_BINARY)
-
-    # Find contours to locate the cursor
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Highlight the largest contour, assuming it's the cursor
     if contours:
         largest_contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(largest_contour)
-
-        # Convert hex color to BGR
-        bgr_color = hex_to_bgr(cursor_color)
-
-        # Draw the transparent circle for the cursor highlight
-        overlay = frame.copy()
-        cv2.circle(overlay, (x + w // 2, y + h // 2), radius, bgr_color, -1)
-
-        # Apply the overlay with transparency
-        cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-
-    return frame
+        return x + w // 2, y + h // 2  # Return cursor center
+    return None, None
 
 # Upload video
 uploaded_video = st.file_uploader("Upload your tutorial video", type=["mp4", "mov"])
@@ -132,20 +123,6 @@ with col1:
             index=2,
             horizontal=True
         )
-
-        # Display boxes based on the selected aspect ratio
-        st.markdown('<div class="ratio-container">', unsafe_allow_html=True)
-        if selected_ratio == "Portrait (9:16)":
-            st.markdown('<div class="ratio-box box-portrait-9-16 selected">9:16</div>', unsafe_allow_html=True)
-        elif selected_ratio == "Portrait (3:4)":
-            st.markdown('<div class="ratio-box box-portrait-3-4 selected">3:4</div>', unsafe_allow_html=True)
-        elif selected_ratio == "Square (1:1)":
-            st.markdown('<div class="ratio-box box-square selected">1:1</div>', unsafe_allow_html=True)
-        elif selected_ratio == "Landscape (4:3)":
-            st.markdown('<div class="ratio-box box-landscape-small selected">4:3</div>', unsafe_allow_html=True)
-        elif selected_ratio == "Landscape (16:9)":
-            st.markdown('<div class="ratio-box box-landscape-large selected">16:9</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
         # Cursor highlight settings below aspect ratio
         st.subheader("Cursor Highlight Settings")
@@ -169,13 +146,27 @@ if uploaded_video and focus_button:
     # Load video with MoviePy
     clip = VideoFileClip(tfile.name)
 
-    # Apply aspect ratio cropping
-    clip = apply_aspect_ratio(clip, selected_ratio)
+    # Get frame dimensions
+    frame_width, frame_height = clip.size
 
-    # Define a function to process each frame with dynamic cursor detection and highlight
+    # Define a function to process each frame, detect cursor, and crop dynamically
     def add_cursor_highlight_to_frame(get_frame, t):
         frame = get_frame(t)
-        return detect_and_highlight_cursor(frame, cursor_color, radius, opacity)
+
+        # Detect cursor position
+        cursor_x, cursor_y = detect_cursor(frame)
+
+        if cursor_x is not None and cursor_y is not None:
+            # Apply dynamic cropping
+            frame = dynamic_crop(frame, cursor_x, cursor_y, selected_ratio, frame_width, frame_height)
+
+            # Highlight the cursor
+            overlay = frame.copy()
+            bgr_color = hex_to_bgr(cursor_color)
+            cv2.circle(overlay, (cursor_x, cursor_y), radius, bgr_color, -1)
+            cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+
+        return frame
 
     # Apply cursor detection and highlight frame-by-frame
     highlighted_clip = clip.fl(add_cursor_highlight_to_frame)
